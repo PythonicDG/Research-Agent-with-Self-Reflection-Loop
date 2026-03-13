@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Research Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #111118;
+    --border:   #1e1e2e;
+    --accent:   #7c6af7;
+    --accent2:  #4fffb0;
+    --text:     #e2e2f0;
+    --muted:    #555570;
+    --warn:     #f7a76c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+  }
+
+  /* noise overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { width: 100%; max-width: 780px; position: relative; z-index: 1; }
+
+  /* header */
+  header { margin-bottom: 48px; }
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  h1 span { color: var(--accent); }
+  .sub {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  /* input area */
+  .input-wrap {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  button {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 14px 24px;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    white-space: nowrap;
+  }
+  button:hover  { opacity: .85; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* log terminal */
+  .log-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .log-header {
+    background: var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .dot { width:10px; height:10px; border-radius:50%; }
+  .dot.r { background:#ff5f57; }
+  .dot.y { background:#febc2e; }
+  .dot.g { background:#28c840; }
+  .log-body {
+    padding: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .log-line { display: flex; gap: 10px; align-items: flex-start; }
+  .log-line .ts { color: var(--muted); flex-shrink: 0; }
+  .log-line.search .msg  { color: var(--accent2); }
+  .log-line.reflect .msg { color: var(--warn); }
+  .log-line.info .msg    { color: var(--muted); }
+
+  /* confidence bar */
+  .conf-wrap {
+    margin-top: 10px;
+    display: none;
+  }
+  .conf-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .conf-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .conf-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    width: 0%;
+    transition: width .5s ease;
+  }
+
+  /* report */
+  .report-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: none;
+    animation: fadeUp .4s ease forwards;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .report-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .report-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .badges { display: flex; gap: 8px; }
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid;
+  }
+  .badge.loops { border-color: var(--accent);  color: var(--accent); }
+  .badge.conf  { border-color: var(--accent2); color: var(--accent2); }
+
+  .report-body {
+    padding: 24px;
+    line-height: 1.75;
+    font-size: 15px;
+    white-space: pre-wrap;
+  }
+
+  /* critique accordion */
+  .critiques-wrap { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .critiques-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+  }
+  .critique-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--warn);
+    margin-bottom: 8px;
+    font-family: 'Space Mono', monospace;
+    line-height: 1.6;
+  }
+  .critique-item::before {
+    content: '> ';
+    color: var(--muted);
+  }
+
+  /* spinner */
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <p class="tag">// Research Agent v1.0</p>
+    <h1>Deep Research.<br/><span>Self-Reflecting</span> AI.</h1>
+    <p class="sub">Searches → critiques → loops until confident → writes report.</p>
+  </header>
+
+  <div class="input-wrap">
+    <input id="queryInput" type="text" placeholder="Ask anything… e.g. Latest developments in quantum computing 2025" />
+    <button id="runBtn" onclick="runResearch()">RUN →</button>
+  </div>
+
+  <!-- live log -->
+  <div class="log-wrap" id="logWrap">
+    <div class="log-header">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+      <span style="margin-left:8px">agent.log</span>
+    </div>
+    <div class="log-body" id="logBody"></div>
+    <div style="padding:0 16px 16px">
+      <div class="conf-wrap" id="confWrap">
+        <div class="conf-label">
+          <span>CONFIDENCE</span>
+          <span id="confVal">0/10</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- final report -->
+  <div class="report-wrap" id="reportWrap">
+    <div class="report-header">
+      <span class="report-title">// Final Report</span>
+      <div class="badges">
+        <span class="badge loops" id="loopsBadge">— loops</span>
+        <span class="badge conf"  id="confBadge">—/10 confidence</span>
+      </div>
+    </div>
+    <div class="report-body" id="reportBody"></div>
+    <div style="padding:0 24px 24px">
+      <div class="critiques-wrap" id="critiquesWrap">
+        <div class="critiques-title" onclick="toggleCritiques()">
+          <span>REFLECTION HISTORY</span><span id="critiqueToggle">▼ show</span>
+        </div>
+        <div id="critiquesList" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function ts() {
+    return new Date().toLocaleTimeString('en', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+
+  function addLog(type, msg) {
+    const body = document.getElementById('logBody');
+    const line = document.createElement('div');
+    line.className = `log-line ${type}`;
+    line.innerHTML = `<span class="ts">[${ts()}]</span><span class="msg">${msg}</span>`;
+    body.appendChild(line);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function setConfidence(score) {
+    document.getElementById('confWrap').style.display = 'block';
+    document.getElementById('confVal').textContent  = `${score}/10`;
+    document.getElementById('confFill').style.width = `${score * 10}%`;
+  }
+
+  function toggleCritiques() {
+    const list   = document.getElementById('critiquesList');
+    const toggle = document.getElementById('critiqueToggle');
+    const hidden = list.style.display === 'none';
+    list.style.display  = hidden ? 'block' : 'none';
+    toggle.textContent  = hidden ? '▲ hide' : '▼ show';
+  }
+
+  async function runResearch() {
+    const query = document.getElementById('queryInput').value.trim();
+    if (!query) return;
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled   = true;
+    btn.innerHTML  = '<span class="spinner"></span>Running…';
+
+    // reset UI
+    const logWrap    = document.getElementById('logWrap');
+    const reportWrap = document.getElementById('reportWrap');
+    logWrap.style.display    = 'block';
+    reportWrap.style.display = 'none';
+    document.getElementById('logBody').innerHTML      = '';
+    document.getElementById('critiquesList').innerHTML = '';
+    document.getElementById('confWrap').style.display  = 'none';
+
+    addLog('info', `Query: "${query}"`);
+
+    const resp = await fetch('/research', {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({query})
+    });
+
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = JSON.parse(line.slice(6));
+
+        if (data.type === 'status') {
+          addLog('info', data.message);
+        }
+        else if (data.type === 'search') {
+          addLog('search', data.message);
+        }
+        else if (data.type === 'reflect') {
+          addLog('reflect', data.message);
+          setConfidence(data.confidence);
+          if (data.critique) {
+            const item = document.createElement('div');
+            item.className   = 'critique-item';
+            item.textContent = data.critique;
+            document.getElementById('critiquesList').appendChild(item);
+          }
+        }
+        else if (data.type === 'report') {
+          // show report
+          reportWrap.style.display = 'block';
+          document.getElementById('reportBody').textContent   = data.report;
+          document.getElementById('loopsBadge').textContent   = `${data.loops} loops`;
+          document.getElementById('confBadge').textContent    = `${data.confidence}/10 confidence`;
+          addLog('info', '✅ Report written.');
+          btn.disabled  = false;
+          btn.innerHTML = 'RUN →';
+        }
+      }
+    }
+
+    btn.disabled  = false;
+    btn.innerHTML = 'RUN →';
+  }
+
+  // allow Enter key
+  document.getElementById('queryInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runResearch();
+  });
+</script>
+</body>
+</html>
