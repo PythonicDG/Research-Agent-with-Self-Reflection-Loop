@@ -1,6 +1,6 @@
 # 🔍 Research Agent with Self-Reflection Loop
 
-> Searches the web → critiques its own findings → loops until confident → writes a report. Built with LangGraph, Groq, Tavily, and FastAPI.
+> Plans research → searches the web → critiques its own findings → loops until confident → writes a report → validates output. Built with LangGraph, Groq, Tavily, and FastAPI.
 
 ---
 
@@ -10,34 +10,51 @@
 USER QUERY
     │
     ▼
+[planner_node]
+  LLM breaks query into
+  2-3 focused sub-queries
+    │
+    ▼
 [search_node] ◄─────────────┐
-  Tavily search, 3 results   │
-    │                        │ "search"
-    ▼                        │
-[reflect_node]           [router]
-  LLM scores confidence ──►  │
-  1-10, adds critique         │ "write"
-                              │
-                              ▼
-                       [write_report_node]
-                         Bullets + Sources
-                              │
-                              ▼
-                         FINAL REPORT
+  Tavily search, 3 results  │
+    │                       │ "search"
+    ▼                       │
+[reflect_node]          [router]
+  LLM scores confidence ──► │
+  1-10, adds critique       │ "write"
+                            │
+                            ▼
+                    [write_report_node]
+                     Bullets + Sources
+                            │
+                            ▼
+                     [validator_node]
+                     LLM checks report
+                   quality & structure
+                            │
+                            ▼
+                       FINAL REPORT
 ```
 
 **Router logic:** `confidence >= 7` OR `iterations >= 3` → write, else loop back.
 
 ---
 
-## 🧠 How Reflection Works
+## 🧠 How It Works
 
-On each loop, the agent critiques its own results and scores confidence. On retry, it appends the critique to the query — so it searches **smarter**, not just more.
+### Planning
+Before searching, the planner LLM decomposes the user's query into 2–3 focused sub-queries and identifies the core intent. Each loop iteration uses the next planned sub-query.
+
+### Reflection & Query Refinement
+On each loop, the agent critiques its own results and scores confidence. On retry, it appends the critique to the next sub-query — so it searches **smarter**, not just more.
 
 ```
 Loop 1: search("AI agents 2025") → confidence 5/10 → loop
 Loop 2: search("AI agents 2025 missing benchmarks...") → confidence 8/10 → write
 ```
+
+### Validation
+After the report is written, a dedicated validator LLM checks that the report fully answers the original question, all required sections are present (SUMMARY, KEY FINDINGS, SOURCES USED), and flags unsupported claims. If validation fails, a warning note is appended to the report.
 
 ---
 
@@ -58,11 +75,14 @@ Loop 2: search("AI agents 2025 missing benchmarks...") → confidence 8/10 → w
 ```python
 class AgentState(TypedDict):
     query:            str        # never changes
+    planned_queries:  List[str]  # set by planner, 2-3 sub-queries
     search_results:   List[str]  # accumulates across loops
     critiques:        List[str]  # one per loop
     confidence_score: int        # 1-10, set by reflect_node
     iteration_count:  int        # safety cap at 3
-    final_report:     str        # set at the end
+    final_report:     str        # set by write_report_node
+    validation_notes: str        # feedback from validator
+    is_valid:         bool       # True if report passes validation
 ```
 
 ---
@@ -108,9 +128,10 @@ Get API keys free at [console.groq.com](https://console.groq.com) and [app.tavil
 
 | Event | Payload |
 |-------|---------|
-| `status` | Run started |
+| `status` | Run status updates |
+| `plan` | Sub-queries identified by planner |
 | `reflect` | `critique`, `confidence` score |
-| `report` | Final report, loop count, confidence |
+| `report` | Final report, loop count, confidence, `is_valid`, `validation_feedback` |
 
 ---
 
@@ -118,17 +139,17 @@ Get API keys free at [console.groq.com](https://console.groq.com) and [app.tavil
 
 | Concept | Implementation |
 |---------|---------------|
+| Query decomposition | Planner LLM breaks query into 2-3 sub-queries |
 | ReAct loop | search → reflect → route → repeat |
 | Self-reflection | LLM critiques its own gathered results |
 | Conditional edges | `router` function in LangGraph |
 | Query refinement | Critique appended to next search query |
-| Structured output | Reflect node returns JSON with confidence score |
+| Structured output | Reflect/planner/validator nodes return JSON |
+| Output validation | Dedicated validator node checks report quality |
 | SSE streaming | FastAPI streams live updates to browser |
 
 ---
 
 ## 🔮 Possible Extensions
 
-Multi-tool search · Query decomposition · Human-in-the-loop · Vector memory · Multi-agent · Confidence trend chart
-
----
+Multi-tool search · Human-in-the-loop · Vector memory · Multi-agent · Confidence trend chart · Re-write loop on validation failure
