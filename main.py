@@ -205,7 +205,7 @@ is_valid = false means there are issues (describe them in feedback)."""
         "is_valid":         is_valid,
     }
 
-
+#graph
 graph = StateGraph(AgentState)
 
 graph.add_node("planner",   planner_node)
@@ -224,7 +224,7 @@ graph.add_edge("validator", END)
 
 agent_app = graph.compile()
 
-
+#api's
 class QueryRequest(BaseModel):
     query: str
 
