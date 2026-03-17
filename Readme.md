@@ -105,14 +105,20 @@ research_agent/
 # Install
 pip install fastapi uvicorn langgraph langchain langchain-groq tavily-python
 
-# Set keys
-export GROQ_API_KEY="your-key"
-export TAVILY_API_KEY="your-key"
+# Create a .env file (or copy .env.example)
+cp .env.example .env
+
+# Put your keys in .env (or export directly)
+# Example:
+# GROQ_API_KEY=your-groq-key
+# TAVILY_API_KEY=your-tavily-key
 
 # Run
 uvicorn main:app --reload
 # Open → http://localhost:8000
 ```
+
+> Tip: You can also set `GROQ_API_KEY` and `TAVILY_API_KEY` via your shell environment instead of using `.env`.
 
 Get API keys free at [console.groq.com](https://console.groq.com) and [app.tavily.com](https://app.tavily.com).
 
