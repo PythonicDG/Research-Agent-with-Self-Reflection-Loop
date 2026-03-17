@@ -97,6 +97,11 @@
     transition: opacity .2s, transform .1s;
     white-space: nowrap;
   }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
   button:hover  { opacity: .85; }
   button:active { transform: scale(.97); }
   button:disabled { opacity: .4; cursor: not-allowed; }
@@ -184,6 +189,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
   }
   .report-title {
     font-family: 'Space Mono', monospace;
@@ -264,6 +271,7 @@
   <div class="input-wrap">
     <input id="queryInput" type="text" placeholder="Ask anything… e.g. Latest developments in quantum computing 2025" />
     <button id="runBtn" onclick="runResearch()">RUN →</button>
+    <button id="clearBtn" onclick="resetUI()" class="secondary">CLEAR</button>
   </div>
 
   <!-- live log -->
@@ -292,6 +300,7 @@
         <span class="badge loops" id="loopsBadge">— loops</span>
         <span class="badge conf"  id="confBadge">—/10 confidence</span>
       </div>
+      <button id="copyBtn" class="secondary" onclick="copyReport()">COPY</button>
     </div>
     <div class="report-body" id="reportBody"></div>
     <div style="padding:0 24px 24px">
@@ -326,6 +335,28 @@
     document.getElementById('confFill').style.width = `${score * 10}%`;
   }
 
+  function resetUI() {
+    document.getElementById('queryInput').value = '';
+    document.getElementById('logWrap').style.display    = 'none';
+    document.getElementById('reportWrap').style.display = 'none';
+    document.getElementById('logBody').innerHTML      = '';
+    document.getElementById('critiquesList').innerHTML = '';
+    document.getElementById('confWrap').style.display  = 'none';
+    document.getElementById('runBtn').disabled   = false;
+    document.getElementById('runBtn').innerHTML  = 'RUN →';
+    document.getElementById('clearBtn').disabled = false;
+  }
+
+  function copyReport() {
+    const report = document.getElementById('reportBody').textContent.trim();
+    if (!report) return;
+    navigator.clipboard.writeText(report).then(() => {
+      addLog('info', '✅ Report copied to clipboard');
+    }).catch(() => {
+      addLog('info', '⚠️ Copy failed. Please select and copy manually.');
+    });
+  }
+
   function toggleCritiques() {
     const list   = document.getElementById('critiquesList');
     const toggle = document.getElementById('critiqueToggle');
@@ -338,9 +369,11 @@
     const query = document.getElementById('queryInput').value.trim();
     if (!query) return;
 
-    const btn = document.getElementById('runBtn');
-    btn.disabled   = true;
-    btn.innerHTML  = '<span class="spinner"></span>Running…';
+    const btn      = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    btn.disabled    = true;
+    clearBtn.disabled = true;
+    btn.innerHTML   = '<span class="spinner"></span>Running…';
 
     // reset UI
     const logWrap    = document.getElementById('logWrap');
@@ -398,14 +431,16 @@
           document.getElementById('loopsBadge').textContent   = `${data.loops} loops`;
           document.getElementById('confBadge').textContent    = `${data.confidence}/10 confidence`;
           addLog('info', '✅ Report written.');
-          btn.disabled  = false;
-          btn.innerHTML = 'RUN →';
+          btn.disabled   = false;
+          clearBtn.disabled = false;
+          btn.innerHTML  = 'RUN →';
         }
       }
     }
 
-    btn.disabled  = false;
-    btn.innerHTML = 'RUN →';
+    btn.disabled   = false;
+    clearBtn.disabled = false;
+    btn.innerHTML  = 'RUN →';
   }
 
   // allow Enter key
